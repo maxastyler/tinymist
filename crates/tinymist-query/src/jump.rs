@@ -1,18 +1,47 @@
 //! Jumping from and to source and the rendered document.
 
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, path::PathBuf};
 
+use lsp_types::Position as LspPosition;
 use tinymist_project::LspWorld;
 use tinymist_std::typst::TypstDocument;
-use tinymist_world::debug_loc::SourceSpanOffset;
+use tinymist_world::debug_loc::{DocumentPosition, SourceSpanOffset};
 use typst::{
     World,
-    introspection::PagedPosition as Position,
+    introspection::PagedPosition as TypstPosition,
     layout::{Frame, FrameItem, Point, Size},
     syntax::{LinkedNode, Source, Span, SyntaxKind},
     visualize::Geometry,
 };
 use typst_shim::syntax::LinkedNodeExt;
+
+use crate::{LocalContext, SemanticRequest};
+
+/// A request to resolve a source position to rendered document positions.
+#[derive(Debug, Clone)]
+pub struct DocumentPositionRequest {
+    /// The path of the source document.
+    pub path: PathBuf,
+    /// The source position in the negotiated LSP position encoding.
+    pub position: LspPosition,
+}
+
+impl SemanticRequest for DocumentPositionRequest {
+    type Response = Vec<DocumentPosition>;
+
+    fn request(self, ctx: &mut LocalContext) -> Option<Self::Response> {
+        let source = ctx.source_by_path(&self.path).ok()?;
+        let cursor = ctx.to_typst_pos(self.position, &source)?;
+        let document = ctx.success_doc()?;
+
+        Some(
+            jump_from_cursor(document, &source, cursor)
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
+    }
+}
 
 /// Finds a span range from a clicked physical position in a rendered paged
 /// document.
@@ -95,7 +124,11 @@ pub fn jump_from_click(
 }
 
 /// Finds the output location in the document for a cursor position.
-pub fn jump_from_cursor(document: &TypstDocument, source: &Source, cursor: usize) -> Vec<Position> {
+pub fn jump_from_cursor(
+    document: &TypstDocument,
+    source: &Source,
+    cursor: usize,
+) -> Vec<TypstPosition> {
     jump_from_cursor_(document, source, cursor).unwrap_or_default()
 }
 
@@ -104,7 +137,7 @@ fn jump_from_cursor_(
     document: &TypstDocument,
     source: &Source,
     cursor: usize,
-) -> Option<Vec<Position>> {
+) -> Option<Vec<TypstPosition>> {
     // todo: leaf_at_compat only matches the text before the cursor, but we could
     // also match a text if it is after the cursor
     // The case `leaf_at_compat` will match: `Hello|`
@@ -143,7 +176,7 @@ fn jump_from_cursor_(
                 if let Some(point) = find_in_frame(&page.frame, span, &mut p_dis, &mut min_point)
                     && let Some(page) = NonZeroUsize::new(idx + 1)
                 {
-                    positions.push(Position { page, point });
+                    positions.push(TypstPosition { page, point });
                 }
 
                 // In this page, we found a closer span and update.
@@ -155,7 +188,7 @@ fn jump_from_cursor_(
 
             // If we didn't find any exact span, we add the closest one in the same page.
             if positions.is_empty() && min_dis != u64::MAX {
-                positions.push(Position {
+                positions.push(TypstPosition {
                     page: NonZeroUsize::new(min_page + 1)?,
                     point: min_point,
                 });
@@ -250,6 +283,33 @@ mod tests {
                 description => format!("Jump cursor on {})", make_range_annotation(&source)),
             }, {
                 assert_snapshot!(results);
+            })
+        });
+    }
+
+    #[test]
+    fn test_document_position_request() {
+        snapshot_testing("document_position", &|ctx, path| {
+            let source = ctx.source_by_path(&path).unwrap();
+            let positions = find_test_range_(&source)
+                .map(|cursor| {
+                    let position =
+                        crate::to_lsp_position(cursor, crate::PositionEncoding::Utf16, &source);
+                    DocumentPositionRequest {
+                        path: path.clone(),
+                        position,
+                    }
+                    .request(ctx)
+                })
+                .collect::<Vec<_>>();
+
+            with_settings!({
+                description => format!(
+                    "Resolve document positions on {})",
+                    make_range_annotation(&source)
+                ),
+            }, {
+                assert_snapshot!(serde_json::to_string_pretty(&positions).unwrap());
             })
         });
     }

@@ -341,6 +341,7 @@ impl ServerState {
             .with_command("tinymist.focusMain", State::focus_document)
             .with_command_("tinymist.interactCodeContext", State::interact_code_context)
             .with_command_("tinymist.getDocumentMetrics", State::get_document_metrics)
+            .with_command_("tinymist.getDocumentPosition", State::get_document_position)
             .with_command_("tinymist.getWorkspaceLabels", State::get_workspace_labels)
             .with_command_("tinymist.getServerInfo", State::get_server_info)
             // resources

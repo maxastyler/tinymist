@@ -1,0 +1,9 @@
+---
+source: crates/tinymist-query/src/jump.rs
+description: "Resolve document positions on er 0..1 */|H|ello\n)"
+expression: "serde_json::to_string_pretty(&positions).unwrap()"
+input_file: crates/tinymist-query/src/fixtures/document_position/unavailable.typ
+---
+[
+  null
+]

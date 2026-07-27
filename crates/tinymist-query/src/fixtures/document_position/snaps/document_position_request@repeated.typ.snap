@@ -1,0 +1,20 @@
+---
+source: crates/tinymist-query/src/jump.rs
+description: "Resolve document positions on r 1..2 */H|e|llo]\n)"
+expression: "serde_json::to_string_pretty(&positions).unwrap()"
+input_file: crates/tinymist-query/src/fixtures/document_position/repeated.typ
+---
+[
+  [
+    {
+      "page_no": 2,
+      "x": 76.36614,
+      "y": 78.10414
+    },
+    {
+      "page_no": 3,
+      "x": 76.36614,
+      "y": 78.10414
+    }
+  ]
+]

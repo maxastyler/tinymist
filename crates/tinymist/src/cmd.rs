@@ -5,7 +5,7 @@ mod export;
 use std::ops::Range;
 use std::path::PathBuf;
 
-use lsp_types::TextDocumentIdentifier;
+use lsp_types::{TextDocumentIdentifier, TextDocumentPositionParams};
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 #[cfg(feature = "trace")]
@@ -415,6 +415,13 @@ impl ServerState {
     pub fn get_document_metrics(&mut self, mut args: Vec<JsonValue>) -> ScheduleResult {
         let path = get_arg!(args[0] as PathBuf);
         run_query!(self.DocumentMetrics(path))
+    }
+
+    /// Get rendered document positions for a source position.
+    pub fn get_document_position(&mut self, mut args: Vec<JsonValue>) -> ScheduleResult {
+        let params = get_arg!(args[0] as TextDocumentPositionParams);
+        let (path, position) = crate::as_path_pos(params);
+        run_query!(self.DocumentPosition(path, position))
     }
 
     /// Get all syntactic labels in workspace.

@@ -20,6 +20,40 @@ The extra features are exposed via LSP's #link("https://microsoft.github.io/lang
 
 // Two styles are made for stateful commands.
 
+== Document Position
+
+The public `tinymist.getDocumentPosition` command maps a Typst source position
+to positions in Tinymist's latest successfully compiled paged document. This is
+useful for editor integrations that implement forward search into an external
+PDF viewer.
+
+Call `workspace/executeCommand` with one standard LSP
+`TextDocumentPositionParams` argument:
+
+```json
+{
+  "command": "tinymist.getDocumentPosition",
+  "arguments": [{
+    "textDocument": { "uri": "file:///project/main.typ" },
+    "position": { "line": 10, "character": 7 }
+  }]
+}
+```
+
+The command returns every matching rendered position:
+
+```json
+[
+  { "page_no": 1, "x": 70.866, "y": 78.104 }
+]
+```
+
+`page_no` is one-based. The `x` and `y` coordinates are PDF points measured
+from the top-left of the page. Multiple results are possible when the same
+source content is rendered more than once. An empty array means that the source
+position has no rendered location; `null` means that the source, position, or
+latest successful compiled document is unavailable.
+
 == Code Context
 
 The code context requests are useful for _Editor Frontends_ to check syntax and semantic the multiple positions. For example an editor frontend can filter some completion list by acquire the code context at current position.
