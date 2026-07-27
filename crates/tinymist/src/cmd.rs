@@ -424,6 +424,21 @@ impl ServerState {
         run_query!(self.DocumentPosition(path, position))
     }
 
+    /// Get a source position for a rendered document position.
+    pub fn get_source_position(&mut self, mut args: Vec<JsonValue>) -> ScheduleResult {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct SourcePositionParams {
+            text_document: TextDocumentIdentifier,
+            position: tinymist_query::DocumentPosition,
+        }
+
+        let params = get_arg!(args[0] as SourcePositionParams);
+        let path = crate::as_path(params.text_document);
+        let position = params.position;
+        run_query!(self.SourcePosition(path, position))
+    }
+
     /// Get all syntactic labels in workspace.
     pub fn get_workspace_labels(&mut self, _arguments: Vec<JsonValue>) -> ScheduleResult {
         run_query!(self.WorkspaceLabel())

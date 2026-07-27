@@ -1,0 +1,29 @@
+---
+source: crates/tinymist-query/src/jump.rs
+description: "Resolve source position in /dummy-root/s0.typ on r 1..2 */H|e|llo\n)"
+expression: "serde_json::to_string_pretty(&serde_json::json!({\n    \"mapped\": mapped, \"span_end\": span_end, \"zero_page\": zero_page,\n    \"invalid_page\": invalid_page, \"blank\": blank,\n})).unwrap()"
+input_file: crates/tinymist-query/src/fixtures/source_position/basic.typ
+---
+{
+  "blank": null,
+  "invalid_page": null,
+  "mapped": {
+    "position": {
+      "character": 24,
+      "line": 2
+    },
+    "textDocument": {
+      "uri": "file:///dummy-root/s0.typ"
+    }
+  },
+  "span_end": {
+    "position": {
+      "character": 29,
+      "line": 2
+    },
+    "textDocument": {
+      "uri": "file:///dummy-root/s0.typ"
+    }
+  },
+  "zero_page": null
+}

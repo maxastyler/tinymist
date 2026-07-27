@@ -54,6 +54,41 @@ source content is rendered more than once. An empty array means that the source
 position has no rendered location; `null` means that the source, position, or
 latest successful compiled document is unavailable.
 
+== Source Position
+
+The public `tinymist.getSourcePosition` command performs inverse search from a
+position in Tinymist's latest successfully compiled paged document to the
+corresponding Typst source position.
+
+Call `workspace/executeCommand` with the master document and a rendered
+position:
+
+```json
+{
+  "command": "tinymist.getSourcePosition",
+  "arguments": [{
+    "textDocument": { "uri": "file:///project/main.typ" },
+    "position": { "page_no": 1, "x": 70.866, "y": 78.104 }
+  }]
+}
+```
+
+The master document selects the compilation context. The returned source may be
+the master document or another source used by it:
+
+```json
+{
+  "textDocument": { "uri": "file:///project/included.typ" },
+  "position": { "line": 10, "character": 7 }
+}
+```
+
+`page_no` is one-based. The `x` and `y` coordinates are PDF points measured
+from the top-left of the page. Result lines are zero-based, and characters use
+the position encoding negotiated for the LSP session. The command returns
+`null` when the compilation or page is unavailable or the rendered position
+has no resolvable source location.
+
 == Code Context
 
 The code context requests are useful for _Editor Frontends_ to check syntax and semantic the multiple positions. For example an editor frontend can filter some completion list by acquire the code context at current position.

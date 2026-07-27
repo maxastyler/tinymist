@@ -1,0 +1,13 @@
+---
+source: crates/tinymist-query/src/jump.rs
+description: "Resolve source position in /dummy-root/s0.typ on er 0..1 */|H|ello\n)"
+expression: "serde_json::to_string_pretty(&serde_json::json!({\n    \"mapped\": mapped, \"span_end\": span_end, \"zero_page\": zero_page,\n    \"invalid_page\": invalid_page, \"blank\": blank,\n})).unwrap()"
+input_file: crates/tinymist-query/src/fixtures/source_position/unavailable.typ
+---
+{
+  "blank": null,
+  "invalid_page": null,
+  "mapped": null,
+  "span_end": null,
+  "zero_page": null
+}

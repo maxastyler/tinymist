@@ -309,6 +309,7 @@ impl ServerState {
                 WorkspaceLabel(req) => snap.run_semantic(req, R::WorkspaceLabel),
                 DocumentMetrics(req) => snap.run_semantic(req, R::DocumentMetrics),
                 DocumentPosition(req) => snap.run_semantic(req, R::DocumentPosition),
+                SourcePosition(req) => snap.run_semantic(req, R::SourcePosition),
                 _ => unreachable!(),
             };
 

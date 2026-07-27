@@ -119,7 +119,7 @@ pub trait SemanticRequest {
 
 mod polymorphic {
     use completion::CompletionList;
-    use lsp_types::TextEdit;
+    use lsp_types::{TextDocumentPositionParams, TextEdit};
     use serde::{Deserialize, Serialize};
     use tinymist_project::ProjectTask;
     use typst::foundations::Dict;
@@ -292,6 +292,8 @@ mod polymorphic {
         DocumentMetrics(DocumentMetricsRequest),
         /// A request to resolve a source position in the rendered document.
         DocumentPosition(DocumentPositionRequest),
+        /// A request to resolve a rendered document position in the source.
+        SourcePosition(SourcePositionRequest),
         /// A request to get the workspace labels.
         WorkspaceLabel(WorkspaceLabelRequest),
         /// A request to get the server info.
@@ -337,6 +339,7 @@ mod polymorphic {
 
                 Self::DocumentMetrics(..) => PinnedFirst,
                 Self::DocumentPosition(..) => PinnedFirst,
+                Self::SourcePosition(..) => PinnedFirst,
                 Self::ServerInfo(..) => Mergeable,
             }
         }
@@ -378,6 +381,7 @@ mod polymorphic {
 
                 Self::DocumentMetrics(req) => &req.path,
                 Self::DocumentPosition(req) => &req.path,
+                Self::SourcePosition(req) => &req.path,
                 Self::ServerInfo(..) => return None,
             })
         }
@@ -447,6 +451,8 @@ mod polymorphic {
         DocumentMetrics(Option<DocumentMetricsResponse>),
         /// The response to the document position request.
         DocumentPosition(Option<Vec<tinymist_world::debug_loc::DocumentPosition>>),
+        /// The response to the source position request.
+        SourcePosition(Option<TextDocumentPositionParams>),
         /// The response to the server info request.
         ServerInfo(Option<HashMap<String, ServerInfoResponse>>),
     }

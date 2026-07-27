@@ -2,14 +2,15 @@
 
 use std::{num::NonZeroUsize, path::PathBuf};
 
-use lsp_types::Position as LspPosition;
+use lsp_types::{Position as LspPosition, TextDocumentIdentifier, TextDocumentPositionParams};
 use tinymist_project::LspWorld;
 use tinymist_std::typst::TypstDocument;
-use tinymist_world::debug_loc::{DocumentPosition, SourceSpanOffset};
+pub use tinymist_world::debug_loc::DocumentPosition;
+use tinymist_world::debug_loc::SourceSpanOffset;
 use typst::{
     World,
     introspection::PagedPosition as TypstPosition,
-    layout::{Frame, FrameItem, Point, Size},
+    layout::{Abs, Frame, FrameItem, Point, Size},
     syntax::{LinkedNode, Source, Span, SyntaxKind},
     visualize::Geometry,
 };
@@ -41,6 +42,52 @@ impl SemanticRequest for DocumentPositionRequest {
                 .collect(),
         )
     }
+}
+
+/// A request to resolve a rendered document position to a source position.
+#[derive(Debug, Clone)]
+pub struct SourcePositionRequest {
+    /// The path of the master document.
+    pub path: PathBuf,
+    /// The physical position in the rendered document.
+    pub position: DocumentPosition,
+}
+
+impl SemanticRequest for SourcePositionRequest {
+    type Response = TextDocumentPositionParams;
+
+    fn request(self, ctx: &mut LocalContext) -> Option<Self::Response> {
+        let TypstDocument::Paged(document) = ctx.success_doc()? else {
+            return None;
+        };
+
+        let page = self.position.page_no.checked_sub(1)?;
+        let page = document.pages().get(page)?;
+        let click = Point::new(
+            Abs::pt(self.position.x.into()),
+            Abs::pt(self.position.y.into()),
+        );
+        let (start, _) = jump_from_click(ctx.world(), &page.frame, click)?;
+
+        resolve_source_position(ctx, start)
+    }
+}
+
+fn resolve_source_position(
+    ctx: &LocalContext,
+    location: SourceSpanOffset,
+) -> Option<TextDocumentPositionParams> {
+    let source_id = location.span.id()?;
+    let source = ctx.source_by_id(source_id).ok()?;
+    let range = source.find(location.span)?.range();
+    let cursor = range.start + location.offset.min(range.len());
+
+    Some(TextDocumentPositionParams {
+        text_document: TextDocumentIdentifier {
+            uri: ctx.uri_for_id(source_id).ok()?,
+        },
+        position: ctx.to_lsp_pos(cursor, &source),
+    })
 }
 
 /// Finds a span range from a clicked physical position in a rendered paged
@@ -310,6 +357,83 @@ mod tests {
                 ),
             }, {
                 assert_snapshot!(serde_json::to_string_pretty(&positions).unwrap());
+            })
+        });
+    }
+
+    #[test]
+    fn test_source_position_request() {
+        snapshot_testing("source_position", &|ctx, path| {
+            let included_path = path.with_file_name("included.typ");
+            let (source_path, source) = ctx
+                .source_by_path(&included_path)
+                .map(|source| (included_path, source))
+                .unwrap_or_else(|_| (path.clone(), ctx.source_by_path(&path).unwrap()));
+            let cursor = find_test_range_(&source).start;
+            let position = ctx.success_doc().and_then(|document| {
+                jump_from_cursor(document, &source, cursor)
+                    .into_iter()
+                    .next()
+                    .map(Into::into)
+            });
+
+            let resolve = |ctx: &mut LocalContext, position| {
+                SourcePositionRequest {
+                    path: path.clone(),
+                    position,
+                }
+                .request(ctx)
+            };
+            let mapped = position.and_then(|position| resolve(ctx, position));
+            let span_end = position.and_then(|_| {
+                let node = LinkedNode::new(source.root()).leaf_at_compat(cursor)?;
+                resolve_source_position(
+                    ctx,
+                    SourceSpanOffset {
+                        span: node.span(),
+                        offset: node.len(),
+                    },
+                )
+            });
+            let zero_page = resolve(
+                ctx,
+                DocumentPosition {
+                    page_no: 0,
+                    x: 0.0,
+                    y: 0.0,
+                },
+            );
+            let invalid_page = resolve(
+                ctx,
+                DocumentPosition {
+                    page_no: usize::MAX,
+                    x: 0.0,
+                    y: 0.0,
+                },
+            );
+            let blank = resolve(
+                ctx,
+                DocumentPosition {
+                    page_no: 1,
+                    x: 0.0,
+                    y: 0.0,
+                },
+            );
+
+            with_settings!({
+                description => format!(
+                    "Resolve source position in {} on {})",
+                    source_path.display(),
+                    make_range_annotation(&source),
+                ),
+            }, {
+                assert_snapshot!(serde_json::to_string_pretty(&serde_json::json!({
+                    "mapped": mapped,
+                    "span_end": span_end,
+                    "zero_page": zero_page,
+                    "invalid_page": invalid_page,
+                    "blank": blank,
+                })).unwrap());
             })
         });
     }
